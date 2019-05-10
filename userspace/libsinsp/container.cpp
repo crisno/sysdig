@@ -416,9 +416,10 @@ void sinsp_container_manager::identify_category(sinsp_threadinfo *tinfo)
 	//
 	// This indicates the initial process of the health probe.
 
-	sinsp_container_info::container_health_probe::probe_type ptype;
+	sinsp_container_info::container_health_probe::probe_type ptype =
+		cinfo->match_health_probe(tinfo);
 
-	if((ptype = cinfo->match_health_probe(tinfo)) == sinsp_container_info::container_health_probe::PT_NONE)
+	if(ptype == sinsp_container_info::container_health_probe::PT_NONE)
 	{
 		g_logger.format(sinsp_logger::SEV_DEBUG,
 				"identify_category (%ld) (%s): container health probe PT_NONE",
