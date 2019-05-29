@@ -8,21 +8,33 @@
 option(BUILD_DRIVER "Build the driver on Linux" ON)
 option(ENABLE_DKMS "Enable DKMS on Linux" ON)
 
-configure_file(dkms.conf.in dkms.conf)
-configure_file(Makefile.in Makefile.dkms)
-configure_file(driver_config.h.in driver_config.h)
-configure_file(driver_config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/driver_config.h")
+configure_file(dkms.conf.in src/dkms.conf)
+configure_file(Makefile.in src/Makefile)
+configure_file(driver_config.h.in src/driver_config.h)
 
-set(CLEAN_FILES
-	"${CMAKE_CURRENT_SOURCE_DIR}/Makefile"
-	"${CMAKE_CURRENT_SOURCE_DIR}/driver_config.h")
+set(DRIVER_SOURCES
+	dynamic_params_table.c
+	event_table.c
+	fillers_table.c
+	flags_table.c
+	main.c
+	ppm.h
+	ppm_events.c
+	ppm_events.h
+	ppm_events_public.h
+	ppm_fillers.c
+	ppm_fillers.h
+	ppm_flag_helpers.h
+	ppm_ringbuffer.h
+	ppm_syscall.h
+	syscall_table.c
+	ppm_cputime.c
+	ppm_compat_unistd_32.h
+)
 
-set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES "${CLEAN_FILES}")
-
-add_custom_target(configure_driver ALL
-	COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/driver_config.h driver_config.h
-	WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-	VERBATIM)
+foreach(FILENAME IN LISTS DRIVER_SOURCES)
+	configure_file(${FILENAME} src/${FILENAME} COPYONLY)
+endforeach()
 
 # make can be self-referenced as $(MAKE) only from Makefiles but this
 # triggers syntax errors with other generators such as Ninja
@@ -37,54 +49,29 @@ endif()
 # http://public.kitware.com/Bug/view.php?id=8438
 if(BUILD_DRIVER)
 	add_custom_target(driver ALL
-		COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/Makefile.dkms Makefile
 		COMMAND ${MAKE_COMMAND}
 		COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${PROBE_NAME}.ko "${CMAKE_CURRENT_BINARY_DIR}"
-		DEPENDS configure_driver
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+		WORKING_DIRECTORY src
 		VERBATIM)
 else()
 	add_custom_target(driver
-		COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/Makefile.dkms Makefile
 		COMMAND ${MAKE_COMMAND}
 		COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${PROBE_NAME}.ko "${CMAKE_CURRENT_BINARY_DIR}"
-		DEPENDS configure_driver
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+		WORKING_DIRECTORY src
 		VERBATIM)
 endif()
 
 add_custom_target(install_driver
 	COMMAND ${MAKE_COMMAND} install
 	DEPENDS driver
-	WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+	WORKING_DIRECTORY src
 	VERBATIM)
 
 if(ENABLE_DKMS)
-	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Makefile.dkms
-		RENAME Makefile
-		DESTINATION "src/${PACKAGE_NAME}-${PROBE_VERSION}"
-		COMPONENT agent-kmodule)
-
-	install(FILES
-		${CMAKE_CURRENT_BINARY_DIR}/dkms.conf
-		dynamic_params_table.c
-		driver_config.h
-		event_table.c
-		fillers_table.c
-		flags_table.c
-		main.c
-		ppm.h
-		ppm_events.c
-		ppm_events.h
-		ppm_events_public.h
-		ppm_fillers.c
-		ppm_fillers.h
-		ppm_flag_helpers.h
-		ppm_ringbuffer.h
-		ppm_syscall.h
-		syscall_table.c
-		ppm_cputime.c
-		ppm_compat_unistd_32.h
+	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/src/Makefile
+		${CMAKE_CURRENT_BINARY_DIR}/src/dkms.conf
+		${CMAKE_CURRENT_BINARY_DIR}/src/driver_config.h
+		${DRIVER_SOURCES}
 		DESTINATION "src/${PACKAGE_NAME}-${PROBE_VERSION}"
 		COMPONENT agent-kmodule)
 
